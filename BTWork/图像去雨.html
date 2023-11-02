@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script type="text/javascript" src="../js/jquery-3.7.1.min.js"></script>
+    <style type="text/css">
+        .container {
+            width: 70%;
+            height: 600px;
+            border: 8px solid blueviolet;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        #nav {
+            position: fixed;
+            width: 68px;
+            height: 50%;
+            right:0%;
+            top: 30%;
+        }
+        #nav ul li a {
+            display: block;
+            width: 48px;
+            height: 48px;
+            padding: 8px;
+            border: 2px solid #cccccc;
+            border-radius: 10px;
+            cursor: pointer; /* 超链接小手 */
+        }
+        #nav ul li {
+            height: 70px;
+        }
+        #nav ul {
+            margin: 0px;
+            padding: 0px;
+            list-style-type: none;
+        }
+        #modal {
+            position: absolute;
+            width: 60%;
+            height: 600px;
+            background: gainsboro;
+            left: 0px;
+            top: 0px;
+            display: none;
+            margin-left: 20%;
+            /* 不透明度  */
+            opacity: 0.7;
+        }
+
+    </style>
+</head>
+
+<body>
+<h1 style="color: darkblue" align="center">请放入单张图片</h1>
+<div class="container">
+
+<!--    <button type="submit" >提交</button>-->
+</div>
+<div id="nav" class="dodogo">
+    <ul>
+        <li>
+            <a href="javascript:;" onclick="openModal()"><img src="../img/add.png" class="imgs" title="添加"/></a>
+        </li>
+        <li>
+            <a href="javascript:;" onclick="deleteImage()"><img src="../img/cle.png" class="imgs" title="删除"/></a>
+        </li>
+        <li>
+            <a href="javascript:;" onclick="closePage()"><img src="../img/del.png" class="imgs" title="关闭"/></a>
+        </li>
+    </ul>
+</div>
+
+<div id="modal">
+    <img src="../img/关闭.png" style="float: right;" onclick="closeModal()"/>
+    <form action="http://www.baidu.com" style="clear: both;margin-top: 150px;">
+        <label for="file">选择图片文件：</label>
+        <input type="file" name="file" id="file">
+        <input type="submit" value="上传图片" name="submit">
+
+    </form>
+</div>
+
+</body>
+
+<script>
+    function openModal() {
+        var modal = document.getElementById('modal');
+        modal.style.display = 'block';
+    }
+
+    function closeModal() {
+        var modal = document.getElementById('modal');
+        modal.style.display = 'none';
+    }
+
+    function submitImage() {
+        var imageInput = document.getElementById('imageInput');
+        var file = imageInput.files[0];
+        // 在这里你可以处理文件上传逻辑，将文件发送到服务器等
+        // 也可以关闭模态框
+        closeModal();
+    }
+
+    function deleteImage() {
+        // 在这里你可以编写删除已提交图片的逻辑
+        // 可能需要与服务器交互来删除图片
+    }
+
+    function closePage() {
+        window.close(); // 关闭当前页面
+    }
+</script>
+</html>

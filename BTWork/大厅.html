@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link href="css/bootstrap.css" rel="stylesheet"/>
+    <style>
+        .kk{
+            height: 640px;
+            background-image: url(img/bgi.jpg);
+            background-size: cover;
+            background-attachment: fixed;
+        }
+
+
+    </style>
+</head>
+<body>
+<!--<img src="img/king.jpg" class=" float-start" alt="king" width="70px" height="70px">-->
+<div class="text-bg-success p-3"><!--控制导航栏颜色-->
+    <div class="d-grid gap-2 d-flex justify-content-end ">
+<!--        d-grid: 这个类定义了一个 display: grid 的 CSS 样式-->
+<!--        gap-2: 这个类定义了网格布局中的列与行之间的间距-->
+<!--        d-md-flex: 这个类通过使用 d-md-flex 类定义了在中等屏幕大小，即在中等屏幕上使用弹性盒模型布局-->
+        <div class="dropdown">
+            <button class="btn btn-outline-dark dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                模式
+            </button>
+            <ul class="dropdown-menu dropdown-menu-dark">
+                <li><a class="dropdown-item active" href="#">日间</a></li>
+                <li><a class="dropdown-item" href="#">夜间</a></li>
+                <li><a class="dropdown-item" href="#">护眼</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="#">内部设置</a></li>
+            </ul>
+        </div>
+        <div class="dropdown">
+            <button class="btn btn-outline-dark dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                我的信息
+            </button>
+            <ul class="dropdown-menu dropdown-menu-dark">
+                <li><a class="dropdown-item active" href="#">用户名</a></li>
+                <li><a class="dropdown-item" href="#">账户图库</a></li>
+                <li><a class="dropdown-item" href="#">退出</a></li>
+                <li><hr class="dropdown-divider"></li>
+<!--                <li><button type="button" class="btn btn-primary dropdown-item" data-bs-toggle="modal" data-bs-target="#staticBackdrop">-->
+<!--                    登录-->
+<!--                </button>-->
+                <li><a class="dropdown-item" href="登陆页面.html" target="_blank">登录</a></li>
+            </ul>
+        </div>
+    </div>
+
+
+</div>
+
+
+    <div class="row  d-flex " id="darea">
+
+
+        <div class="col-11 kk ">
+
+
+            <!-- Modal -->
+            <div class="modal fade modal-dialog modal-dialog-centered" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h1 class="modal-title fs-5" id="exampleModalLabel">请放入您的图片</h1>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <label for="upLoad"></label>
+                            <input  type="file" id="upLoad">
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <button type="button" class="btn btn-primary">Save changes</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div >
+
+        <div class="col-1 d-flex flex-row-reverse">
+            <div class=" btn-group-vertical " role="group" aria-label="Vertical button group">
+                <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#exampleModal">
+                    导入图片
+                </button>
+                <button type="button" class="btn btn-secondary">图像加工</button>
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                        关于我们
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#">团队构成</a></li>
+                        <li><a class="dropdown-item" href="#">联系方式</a></li>
+                    </ul>
+                </div>
+                <button type="button" class="btn btn-secondary">商务合作</button>
+                <button type="button" class="btn btn-secondary">产品介绍</button>
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                        产品升级+
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#">会员权益</a></li>
+                        <li><a class="dropdown-item" href="#">会员通道</a></li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+
+        </div>
+    </div>
+
+
+
+<script src="js/jquery-3.7.1.min.js"></script>
+<script src="js/bootstrap.bundle.min.js"></script>
+
+
+</body>
+</html>
