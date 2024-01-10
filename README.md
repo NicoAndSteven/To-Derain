@@ -1,4 +1,4 @@
-# Hedongmo
+# Gan to Derain
 
 这个项目是用于整合去雨项目的前端和后端工作文件的集合
 
