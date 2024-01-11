@@ -1,7 +1,10 @@
+import os
+from PIL import Image
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
+from torch.utils.data import DataLoader,Dataset
 from torchvision import transforms
 import numpy as np
 import cv2  # Or other image processing libraries
@@ -254,60 +257,64 @@ def discriminator_loss(fake_image, gt_image):
     return torch.nn.functional.binary_cross_entropy(fake_pred, torch.zeros_like(fake_pred)) + \
         torch.nn.functional.binary_cross_entropy(real_pred, torch.ones_like(real_pred))
 
-#Training:
-# Define optimizers for generator and discriminator
+# 数据集类
+class RainDataset(Dataset):
+    def __init__(self, data_root):
+        self.data_root = data_root
+        self.gt_folder = os.path.join(data_root, 'ground_truth')
+        self.rainy_folder = os.path.join(data_root, 'rainy_image')
+        self.image_filenames = os.listdir(self.gt_folder)
+
+    def __len__(self):
+        return len(self.image_filenames)
+
+    def __getitem__(self, idx):
+        gt_path = os.path.join(self.gt_folder, self.image_filenames[idx])
+        rainy_path = os.path.join(self.rainy_folder, self.image_filenames[idx].replace('.png', '_rainy.png'))
+
+        gt_image = Image.open(gt_path).convert("RGB")
+        rainy_image = Image.open(rainy_path).convert("RGB")
+
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            # Add more transforms if needed
+        ])
+
+        gt_image = transform(gt_image)
+        rainy_image = transform(rainy_image)
+
+        return rainy_image, gt_image
+
+# 数据加载和预处理
+data_path = r'C:\Users\86178\Desktop\Rain12600'
+rain_dataset = RainDataset(data_path)
+batch_size = 16  # 根据需要调整批量大小
+data_loader = DataLoader(rain_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+
+# 加载预训练的VGG19模型
+vgg19 = torchvision.models.vgg19(pretrained=True).features
+
+# 创建生成器和判别器实例
+generator = UNetGenerator(3,3)
+discriminator = Discriminator(3)
+
+# 定义优化器
 optimizer_G = torch.optim.Adam(generator.parameters(), lr=0.001)
 optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=0.001)
 
-# Train the network in a loop:
-for epoch in range(100):
-    for i in range(10):
-        # Get a batch of rainy and ground truth images
-        rainy_image, gt_image = ...
-        # Forward pass and calculate losses
-        fake_image = generator(rainy_image)
-        g_loss = generator_loss(fake_image, gt_image)
-        d_loss = discriminator_loss(fake_image, gt_image)
-        # Backward pass and update parameters
-        optimizer_G.zero_grad()
-        g_loss.backward()
-        optimizer_G
-
-#Set up data loading and preprocessing functions:
-def load_data(data_path):
-    # Load rainy and ground truth images from the dataset
-    # Preprocess images (e.g., normalize, resize)
-    return rainy_images, ground_truth_images
-
-#Define training loop:
-# Create instances of generator and discriminator networks
-generator = UNetGenerator(...)
-discriminator = Discriminator(...)
-
-# Define optimizers for both networks
-optimizer_G = torch.optim.Adam(generator.parameters(), lr=0.001)
-optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=0.001)
-
-# Load dataset
-rainy_images, gt_images = load_data(data_path)
-
-# Training loop
+# 训练循环
+num_epochs = 100
 for epoch in range(num_epochs):
-    # Iterate through batches of data
-    for i in range(num_batches):
-        # Forward pass, calculate losses, backpropagate, and update parameters (as shown in the examples)
-        # Get a batch of rainy and ground truth images
-        rainy_image, gt_image = rainy_images[i * batch_size:(i + 1) * batch_size], gt_images[i * batch_size:(i + 1) * batch_size]
-
+    for i, (rainy_image, gt_image) in enumerate(data_loader):
         # Forward pass for generator
         fake_image = generator(rainy_image)
 
         # Discriminator forward pass
-        fake_output = discriminator(fake_image.detach())  # Detach to avoid gradient flow
+        fake_output = discriminator(fake_image.detach())
         real_output = discriminator(gt_image)
 
         # Calculate losses
-        g_loss = generator_loss(fake_image, gt_image, fake_output, vgg_model)
+        g_loss = generator_loss(fake_image, gt_image, fake_output, vgg19)
         d_loss = discriminator_loss(fake_output, real_output)
 
         # Backward pass and update parameters for discriminator
@@ -319,12 +326,4 @@ for epoch in range(num_epochs):
         optimizer_G.zero_grad()
         g_loss.backward()
         optimizer_G.step()
-#Define rain removal function:
-        def remove_rain(rainy_image):
-            # Preprocess input image
-            # Pass through trained generator
-            # Postprocess output image
-            return derained_image
-
-#Load pre-trained VGG19 model (for high-level semantic loss):
-vgg19 = torchvision.models.vgg19(pretrained=True).features
+torch.save(generator.state_dict(), 'generator_final_weights.pth')
