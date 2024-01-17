@@ -1,8 +1,12 @@
+import os
+from PIL import Image
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
+from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
+import multiprocessing
 import numpy as np
 import cv2  # Or other image processing libraries
 
@@ -31,6 +35,7 @@ class FeatureConversionModule(nn.Module):
     def __init__(self, in_channels):
         super(FeatureConversionModule, self).__init__()
         self.conv = nn.Conv2d(in_channels, in_channels, 3, padding=1)
+
         # 添加半实例归一化
         self.half_instance_norm = HalfInstanceNorm(in_channels)
         self.gelu = nn.GELU()
@@ -38,10 +43,21 @@ class FeatureConversionModule(nn.Module):
     def forward(self, x):
         residual = x
         x = self.conv(x)
-        x = self.half_instance_norm(x)
+
+        # Split the channels into two halves
+        half_channels = x.size(1) // 2
+        x1, x2 = x[:, :half_channels], x[:, half_channels:]
+
+        # Apply half_instance_norm to the first half
+        x1 = self.half_instance_norm(x1)
+
+        # Concatenate the normalized and the remaining channels
+        x = torch.cat((x1, x2), dim=1)
+
         x = self.gelu(x)
         x += residual  # Residual connection
         return x
+
 
 # Define the U-Net Generator with weight standardization
 class UNetGenerator(nn.Module):
@@ -88,80 +104,81 @@ class UNetGenerator(nn.Module):
         self.decoder1 = nn.Sequential(
             nn.ConvTranspose2d(1024, 512, 2, stride=2),
             nn.ReLU(),
-            nn.Conv2d(512, 512, 3, padding=1),
+            nn.Conv2d(1024, 512, 3, padding=1),
             nn.ReLU(),
-            nn.Conv2d(512, 256, 3, padding=1)
+            nn.Conv2d(512, 512, 3, padding=1)
         )
         self.decoder2 = nn.Sequential(
             nn.ConvTranspose2d(512, 256, 2, stride=2),
             nn.ReLU(),
-            nn.Conv2d(256, 256, 3, padding=1),
+            nn.Conv2d(512, 256, 3, padding=1),
             nn.ReLU(),
-            nn.Conv2d(256, 128, 3, padding=1)
+            nn.Conv2d(256, 256, 3, padding=1)
         )
         self.decoder3 = nn.Sequential(
             nn.ConvTranspose2d(256, 128, 2, stride=2),
             nn.ReLU(),
-            nn.Conv2d(128, 128, 3, padding=1),
+            nn.Conv2d(256, 128, 3, padding=1),
             nn.ReLU(),
-            nn.Conv2d(128, 64, 3, padding=1)
+            nn.Conv2d(128, 128, 3, padding=1)
         )
         self.decoder4 = nn.Sequential(
             nn.ConvTranspose2d(128, 64, 2, stride=2),
             nn.ReLU(),
-            nn.Conv2d(64, 64, 3, padding=1),
+            nn.Conv2d(128, 64, 3, padding=1),
             nn.ReLU(),
-            nn.Conv2d(64, out_channels, 3, padding=1)
+            nn.Conv2d(64, 64, 3, padding=1)
         )
-
-        # 在编码器-解码器结构中集成的九个FCM
-        self.fcm1 = FeatureConversionModule(64)
-        self.fcm2 = FeatureConversionModule(128)
-        self.fcm3 = FeatureConversionModule(256)
-        self.fcm4 = FeatureConversionModule(512)
-        self.fcm5 = FeatureConversionModule(1024)
-        self.fcm6 = FeatureConversionModule(512)
-        self.fcm7 = FeatureConversionModule(256)
-        self.fcm8 = FeatureConversionModule(128)
-        self.fcm9 = FeatureConversionModule(64)
+        self.decoder5 = nn.Sequential(
+            nn.ConvTranspose2d(64, 32, 2, stride=2),
+            nn.ReLU(),
+            nn.Conv2d(64, 32, 3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(32, 32, 3, padding=1)
+        )
+        self.fcm = FeatureConversionModule(1024)
 
     def forward(self, x):
         # Encoder path with FCMs
         enc1 = self.encoder1(x)
-        fcm1 = self.fcm1(enc1)
 
-        enc2 = self.encoder2(fcm1)
-        fcm2 = self.fcm2(enc2)
+        enc2 = self.encoder2(enc1)
 
-        enc3 = self.encoder3(fcm2)
-        fcm3 = self.fcm3(enc3)
+        enc3 = self.encoder3(enc2)
 
-        enc4 = self.encoder4(fcm3)
-        fcm4 = self.fcm4(enc4)
+        enc4 = self.encoder4(enc3)
 
-        enc5 = self.encoder5(fcm4)
-        fcm5 = self.fcm5(enc5)
+        enc5 = self.encoder5(enc4)
+
+        fcm1 = self.fcm(enc5)
+        fcm2 = self.fcm(fcm1)
+        fcm3 = self.fcm(fcm2)
+        fcm4 = self.fcm(fcm3)
+        fcm5 = self.fcm(fcm4)
+        fcm6 = self.fcm(fcm5)
+        fcm7 = self.fcm(fcm6)
+        fcm8 = self.fcm(fcm7)
+        fcm9 = self.fcm(fcm8)
 
         # Decoder path with FCMs
-        dec1 = self.decoder1(fcm5)
-        cat1 = torch.cat((dec1, fcm4), dim=1)  # Concatenate with the corresponding FCM
-        fcm6 = self.fcm6(cat1)
+        dec1 = self.decoder1(fcm9)
+        cat1 = torch.cat((dec1, enc5), dim=1)  # Concatenate with the corresponding FCM
 
-        dec2 = self.decoder2(fcm6)
-        cat2 = torch.cat((dec2, fcm3), dim=1)
-        fcm7 = self.fcm7(cat2)
+        dec2 = self.decoder2(cat1)
+        cat2 = torch.cat((dec2, enc4), dim=1)
 
-        dec3 = self.decoder3(fcm7)
-        cat3 = torch.cat((dec3, fcm2), dim=1)
-        fcm8 = self.fcm8(cat3)
+        dec3 = self.decoder3(cat2)
+        cat3 = torch.cat((dec3, enc3), dim=1)
 
-        dec4 = self.decoder4(fcm8)
-        cat4 = torch.cat((dec4, fcm1), dim=1)
-        fcm9 = self.fcm9(cat4)
+        dec4 = self.decoder4(cat3)
+        cat4 = torch.cat((dec4, enc2), dim=1)
 
+        dec5 = self.decoder5(cat4)
+        cat5 = torch.cat((dec5, enc1), dim=1)
         # Output derained image
-        derained_image = fcm9
+        derained_image = cat5
         return derained_image
+
 
 # Build the Discriminator
 class Discriminator(nn.Module):
@@ -207,13 +224,13 @@ class Discriminator(nn.Module):
 
 # Remember to adjust kernel sizes, padding, and activation functions based on the specific details in your instructions
 
-#Define Loss Functions:
+# Define Loss Functions:
 # L1 loss
 def l1_loss(fake_image, gt_image):
     return torch.nn.functional.l1_loss(fake_image, gt_image)
 
-# High-level semantic loss
 
+# High-level semantic loss
 
 
 # lgan_loss 是 log(1 - D(G(Irain))) 项
@@ -252,79 +269,125 @@ def discriminator_loss(fake_image, gt_image):
     real_pred = discriminator(gt_image)
     # Use binary cross-entropy loss
     return torch.nn.functional.binary_cross_entropy(fake_pred, torch.zeros_like(fake_pred)) + \
-        torch.nn.functional.binary_cross_entropy(real_pred, torch.ones_like(real_pred))
+           torch.nn.functional.binary_cross_entropy(real_pred, torch.ones_like(real_pred))
 
-#Training:
-# Define optimizers for generator and discriminator
-optimizer_G = torch.optim.Adam(generator.parameters(), lr=0.001)
-optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=0.001)
 
-# Train the network in a loop:
-for epoch in range(100):
-    for i in range(10):
-        # Get a batch of rainy and ground truth images
-        rainy_image, gt_image = ...
-        # Forward pass and calculate losses
-        fake_image = generator(rainy_image)
-        g_loss = generator_loss(fake_image, gt_image)
-        d_loss = discriminator_loss(fake_image, gt_image)
-        # Backward pass and update parameters
-        optimizer_G.zero_grad()
-        g_loss.backward()
-        optimizer_G
+def create_mapping(self):
+    mapping = {}
+    for idx, filename in enumerate(self.image_filenames):
+        gt_path = os.path.join(self.gt_folder, filename)
+        rainy_images = [f"{idx + 1}_{i}_rainy.jpg" for i in range(1, 15)]  # 14 rainy images per ground truth
+        mapping[idx] = rainy_images
+    return mapping
 
-#Set up data loading and preprocessing functions:
-def load_data(data_path):
-    # Load rainy and ground truth images from the dataset
-    # Preprocess images (e.g., normalize, resize)
-    return rainy_images, ground_truth_images
 
-#Define training loop:
-# Create instances of generator and discriminator networks
-generator = UNetGenerator(...)
-discriminator = Discriminator(...)
+# 数据集类
+class RainDataset(Dataset):
+    def __init__(self, data_root):
+        self.data_root = data_root
+        self.gt_folder = os.path.join(data_root, 'ground_truth')
+        self.rainy_folder = os.path.join(data_root, 'rainy_image')
+        self.image_filenames = os.listdir(self.gt_folder)
+        self.mapping = self.create_mapping()
+        self.resize = transforms.Resize((384, 512))  # Adjust the size as needed
 
-# Define optimizers for both networks
-optimizer_G = torch.optim.Adam(generator.parameters(), lr=0.001)
-optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=0.001)
+    def create_mapping(self):
+        mapping = {}
+        for idx, filename in enumerate(self.image_filenames):
+            gt_path = os.path.join(self.gt_folder, filename)
+            rainy_images = [f"{idx + 1}_{i}.jpg" for i in range(1, 15)]  # Assuming 14 rainy images per ground truth
+            mapping[idx] = rainy_images
+        return mapping
 
-# Load dataset
-rainy_images, gt_images = load_data(data_path)
+    def __len__(self):
+        return len(self.image_filenames)
 
-# Training loop
-for epoch in range(num_epochs):
-    # Iterate through batches of data
-    for i in range(num_batches):
-        # Forward pass, calculate losses, backpropagate, and update parameters (as shown in the examples)
-        # Get a batch of rainy and ground truth images
-        rainy_image, gt_image = rainy_images[i * batch_size:(i + 1) * batch_size], gt_images[i * batch_size:(i + 1) * batch_size]
+    def __getitem__(self, idx):
+        gt_path = os.path.join(self.gt_folder, self.image_filenames[idx])
+        rainy_images = self.mapping[idx]
 
-        # Forward pass for generator
-        fake_image = generator(rainy_image)
+        gt_image = Image.open(gt_path).convert("RGB")
+        # Resize the ground truth image to a consistent size
+        gt_image = self.resize(gt_image)
 
-        # Discriminator forward pass
-        fake_output = discriminator(fake_image.detach())  # Detach to avoid gradient flow
-        real_output = discriminator(gt_image)
+        rainy_images_data = []
 
-        # Calculate losses
-        g_loss = generator_loss(fake_image, gt_image, fake_output, vgg_model)
-        d_loss = discriminator_loss(fake_output, real_output)
+        for rainy_image_name in rainy_images:
+            rainy_path = os.path.join(self.rainy_folder, rainy_image_name)
+            rainy_image = Image.open(rainy_path).convert("RGB")
+            # Resize the rainy image to a consistent size
+            rainy_image = self.resize(rainy_image)
 
-        # Backward pass and update parameters for discriminator
-        optimizer_D.zero_grad()
-        d_loss.backward()
-        optimizer_D.step()
+            transform = transforms.Compose([
+                transforms.ToTensor(),
+                # Add more transforms if needed
+            ])
+            rainy_image = transform(rainy_image)
+            rainy_images_data.append(rainy_image)
 
-        # Backward pass and update parameters for generator
-        optimizer_G.zero_grad()
-        g_loss.backward()
-        optimizer_G.step()
-#Define rain removal function:
-        def remove_rain(rainy_image):
-            # Preprocess input image
-            # Pass through trained generator
-            # Postprocess output image
-            return derained_image
+        # Combine the 14 rainy images into a single tensor
+        rainy_images_data = torch.stack(rainy_images_data, dim=0)
 
-#Load pre-trained VGG19 model (for high-level semantic loss):
+        # Keep gt_image as PIL Image
+        gt_image = self.resize(gt_image)
+
+        return rainy_images_data, gt_image
+
+    def resize(self, image):
+        # Add a consistent resizing logic here
+        # Example: image = image.resize((new_width, new_height))
+        return image
+
+
+def custom_collate(batch):
+    rainy_images, gt_images = zip(*batch)
+    rainy_images = torch.stack(rainy_images, dim=0)
+    gt_images = torch.stack([transforms.ToTensor()(img) for img in gt_images], dim=0)
+    return rainy_images, gt_images
+
+
+# 数据加载和预处理
+
+data_path = r'C:\Users\86178\Desktop\Rain12600'
+rain_dataset = RainDataset(data_path)
+batch_size = 16
+data_loader = DataLoader(rain_dataset, batch_size=batch_size, shuffle=True, num_workers=4, collate_fn=custom_collate)
+
+# 加载预训练的VGG19模型
 vgg19 = torchvision.models.vgg19(pretrained=True).features
+
+# 创建生成器和判别器实例
+generator = UNetGenerator(3, 3)
+discriminator = Discriminator(3)
+
+# 定义优化器
+optimizer_G = torch.optim.Adam(generator.parameters(), lr=0.001)
+optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=0.001)
+
+# 训练循环
+if __name__ == '__main__':
+    multiprocessing.freeze_support()
+    num_epochs = 100
+    for epoch in range(num_epochs):
+        for i, (rainy_images, gt_image) in enumerate(data_loader):
+            # Forward pass for generator (pass all 14 rainy images)
+            fake_image = generator(rainy_images.view(-1, 3, 384, 512))
+
+            # Discriminator forward pass
+            fake_output = discriminator(fake_image.detach())
+            real_output = discriminator(gt_image)
+
+            # Calculate losses
+            g_loss = generator_loss(fake_image, gt_image, fake_output, vgg19)
+            d_loss = discriminator_loss(fake_output, real_output)
+
+            # Backward pass and update parameters for discriminator
+            optimizer_D.zero_grad()
+            d_loss.backward()
+            optimizer_D.step()
+
+            # Backward pass and update parameters for generator
+            optimizer_G.zero_grad()
+            g_loss.backward()
+            optimizer_G.step()
+    torch.save(generator.state_dict(), 'generator_final_weights.pth')
